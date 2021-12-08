@@ -46,6 +46,7 @@ app.get("/urls/new", (req, res) => {
   res.render("urls_new");
 });
 
+// Rendering the urls_show
 app.get("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL];
@@ -53,20 +54,37 @@ app.get("/urls/:shortURL", (req, res) => {
   res.render("urls_show", templateVars);
 });
 
+// Creating and redirecting to a specific short URL
 app.post('/urls', (req, res) => {
-  const shortLink = generateRandomString();
-  urlDatabase[shortLink] = req.body.longURL;
-  res.redirect(`/urls/${shortLink}`);
+  const shortURL = generateRandomString();
+  urlDatabase[shortURL] = req.body.longURL;
+  res.redirect(`/urls/${shortURL}`);
 });
 
+// Redirecting user to the long URL based on the short URL
 app.get("/u/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL];
   res.redirect(longURL);
 });
 
+// Deleting URL
 app.post("/urls/:shortURL/delete", (req, res) => {
   const shortURL = req.params.shortURL;
   delete urlDatabase[shortURL];
   res.redirect(`/urls`);
-  });
+});
+
+// Redirecting from urls_index to urls_show for a specific short URL
+app.post("/urls/:shortURL/edit", (req, res) => {
+  const shortURL = req.params.shortURL;
+  res.redirect(`/urls/${shortURL}`);
+});
+
+// Editing/redirecting from urls_index to urls_show to urls_index
+app.post("/urls/:shortURL", (req, res) => {
+  const shortURL = req.params.shortURL;
+  const newURL = req.body.newURL;
+  urlDatabase[shortURL] = newURL;
+  res.redirect(`/urls`);
+});
