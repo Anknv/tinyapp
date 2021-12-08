@@ -22,6 +22,10 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+app.listen(PORT, () => {
+  console.log(`Example app listening on port ${PORT}!`);
+});
+
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
 
@@ -49,10 +53,6 @@ app.get("/urls/:shortURL", (req, res) => {
   res.render("urls_show", templateVars);
 });
 
-app.listen(PORT, () => {
-  console.log(`Example app listening on port ${PORT}!`);
-});
-
 app.post('/urls', (req, res) => {
   const shortLink = generateRandomString();
   urlDatabase[shortLink] = req.body.longURL;
@@ -64,3 +64,9 @@ app.get("/u/:shortURL", (req, res) => {
   const longURL = urlDatabase[shortURL];
   res.redirect(longURL);
 });
+
+app.post("/urls/:shortURL/delete", (req, res) => {
+  const shortURL = req.params.shortURL;
+  delete urlDatabase[shortURL];
+  res.redirect(`/urls`);
+  });
