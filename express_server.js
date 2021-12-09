@@ -43,7 +43,26 @@ app.listen(PORT, () => {
 });
 
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(cookieParser())
+app.use(cookieParser());
+
+const findUserByEmail = (email, database) => {
+  for (let userId in database) {
+    const user = database[userId];
+
+    if (user.email === email) {
+      return user;
+    }
+  }
+  return false;
+};
+
+const authenticateUser = (email, password, database) => {
+  const user = findUserByEmail(email, database);
+  if (user && user.password === password) {
+    return user;
+  }
+  return false;
+};
 
 app.get("/", (req, res) => {
   res.send("Hello!");
@@ -124,10 +143,19 @@ app.post("/urls/:shortURL", (req, res) => {
   res.redirect("/urls");
 });
 
-app.post("/login", (req, res) => {
-  //const userName = req.body.username
-  //res.cookie("username", userName)
-  res.redirect("/urls");
+// Authenticating the user
+app.post('/login', (req, res) => {
+  const email = req.body.email;
+  const password = req.body.password;
+
+  const user = authenticateUser(email, password, users);
+
+  if (user) {
+    res.cookie('user_id', user.id);
+    res.redirect('/urls');
+    return;
+  }
+  res.status(403).send('Incorrect username or password.');
 });
 
 app.post("/logout", (req, res) => {
@@ -147,7 +175,7 @@ app.post('/register', (req, res) => {
   }
 
   if (user) {
-    res.status(400).send("Sorry, user already exists.");
+    res.status(400).send("This email is already connected to an account.");
     return;
   }
 
@@ -167,14 +195,3 @@ app.post('/register', (req, res) => {
   res.cookie('user_id', userId);
   res.redirect('/urls');
 });
-
-const findUserByEmail = (email, database) => {
-  for (let userId in database) {
-    const user = database[userId];
-
-    if (user.email === email) {
-      return user;
-    }
-  }
-  return false;
-};
