@@ -12,6 +12,9 @@
   <%- include('partials/_header') %>
   <main style="margin: 1em;">
     <h3>My URLs</h3>
+    <% if(!user) { %>
+      <div class="alert alert-danger" role="alert">Please log in or register!</div>
+    <% } %>
     <table class="table">
       <thead>
         <tr>
@@ -26,7 +29,7 @@
           <tr>
             <td><%= url %></td>
             <td><%= urls[url].longURL %></td>
-            <td><form method="POST" action="/urls/<%= url %>/edit"><button type="submit" class="btn btn-outline-primary">Edit</button></form></td>
+            <td><form method="GET" action="/urls/<%= url %>/edit"><button type="submit" class="btn btn-outline-primary">Edit</button></form></td>
             <td><form method="POST" action="/urls/<%= url %>/delete"><button type="submit" class="btn btn-outline-danger">Delete</button></form></td>
           </tr>
         <% } %>
