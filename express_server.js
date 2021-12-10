@@ -1,4 +1,4 @@
-const { findUserByEmail, generateRandomString, urlsForUser } = require("helpers");
+const { findUserByEmail, generateRandomString, urlsForUser } = require("./helpers");
 const express = require("express");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
@@ -32,7 +32,7 @@ const users = {
   "userRandomID": {
     id: "userRandomID",
     email: "user@example.com",
-    password: "purple-monkey-dinosaur"
+    password: bcrypt.hashSync("purple-monkey-dinosaur", 10),
   },
   "user2RandomID": {
     id: "user2RandomID",
