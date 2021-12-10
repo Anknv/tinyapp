@@ -1,9 +1,15 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
+const bcrypt = require("bcryptjs");
 
 const app = express();
 const PORT = 8080;
+
+app.use(bodyParser.urlencoded({extended: true}));
+app.use(cookieParser());
+
+app.set("view engine", "ejs");
 
 const generateRandomString = function() {
   let randomString = "";
@@ -17,8 +23,6 @@ const generateRandomString = function() {
   }
   return randomString;
 };
-
-app.set("view engine", "ejs");
 
 const urlDatabase = {
   "b2xVn2": {
@@ -57,13 +61,6 @@ const users = {
   }
 };
 
-app.listen(PORT, () => {
-  console.log(`Example app listening on port ${PORT}!`);
-});
-
-app.use(bodyParser.urlencoded({extended: true}));
-app.use(cookieParser());
-
 const findUserByEmail = (email, database) => {
   for (let userId in database) {
     const user = database[userId];
@@ -77,7 +74,7 @@ const findUserByEmail = (email, database) => {
 
 const authenticateUser = (email, password, database) => {
   const user = findUserByEmail(email, database);
-  if (user && user.password === password) {
+  if (user && bcrypt.compareSync(password, user.password)) {
     return user;
   }
   return false;
@@ -143,7 +140,7 @@ app.get("/urls/:shortURL", (req, res) => {
   res.render("urls_show", templateVars);
 });
 
-// Creating and redirecting to a specific short URL
+// Creating shortURL and redirecting to it
 app.post("/urls", (req, res) => {
   const userId = req.cookies.user_id;
   const user = users[userId];
@@ -159,7 +156,7 @@ app.post("/urls", (req, res) => {
   res.redirect(`/urls/${shortURL}`);
 });
 
-// Redirecting user to the long URL based on the short URL
+// Redirecting user to the longURL based on the shortURL
 app.get("/u/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   if (!urlDatabase[shortURL]) {
@@ -167,6 +164,26 @@ app.get("/u/:shortURL", (req, res) => {
   }
   const longURL = urlDatabase[shortURL].longURL;
   res.redirect(longURL);
+});
+
+app.get("/urls/:shortURL/edit", (req, res) => {
+  const shortURL = req.params.shortURL;
+  res.redirect(`/urls/${shortURL}`);
+});
+
+// Editing URL/redirecting from urls_index to urls_show
+app.post("/urls/:shortURL", (req, res) => {
+  const shortURL = req.params.shortURL;
+  const newURL = req.body.newURL;
+  urlDatabase[shortURL].longURL = newURL;
+
+  const userId = req.cookies.user_id;
+  const value = urlDatabase[shortURL];
+  if (value.userID !== userId) {
+    res.status(403).send("You don't have permission to edit this.");
+    return;
+  }
+  res.redirect("/urls");
 });
 
 // Deleting URL
@@ -182,27 +199,7 @@ app.post("/urls/:shortURL/delete", (req, res) => {
   res.redirect("/urls");
 });
 
-app.get("/urls/:shortURL/edit", (req, res) => {
-  const shortURL = req.params.shortURL;
-  res.redirect(`/urls/${shortURL}`);
-});
-
-// Editing/redirecting from urls_index to urls_show to urls_index
-app.post("/urls/:shortURL", (req, res) => {
-  const shortURL = req.params.shortURL;
-  const newURL = req.body.newURL;
-  urlDatabase[shortURL].longURL = newURL;
-
-  const userId = req.cookies.user_id;
-  const value = urlDatabase[shortURL];
-  if (value.userID !== userId) {
-    res.status(403).send("You don't have permission to edit this.");
-    return;
-  }
-  res.redirect("/urls");
-});
-
-// Authenticating the user
+// Login/Authenticating the user
 app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
@@ -217,11 +214,13 @@ app.post("/login", (req, res) => {
   res.status(403).send("Incorrect username or password.");
 });
 
+// Logout
 app.post("/logout", (req, res) => {
   res.clearCookie("user_id");
   res.redirect("/urls");
 });
 
+// Register
 app.post("/register", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
@@ -238,13 +237,14 @@ app.post("/register", (req, res) => {
     return;
   }
 
-  // Creating a new user id
+  // Creating a new userId
   const userId = Math.random().toString(36).substr(2, 8);
 
+  const hashedPassword = bcrypt.hashSync(password, 10);
   const newUser = {
     id: userId,
     email,
-    password,
+    password: hashedPassword
   };
 
   // Adding the new user to the db
@@ -254,3 +254,8 @@ app.post("/register", (req, res) => {
   res.cookie("user_id", userId);
   res.redirect("/urls");
 });
+
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}!`);
+});
+
