@@ -1,6 +1,8 @@
+const { findUserByEmail, generateRandomString, urlsForUser } = require("helpers");
 const express = require("express");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
+const cookieSession = require("cookie-session");
 const bcrypt = require("bcryptjs");
 
 const app = express();
@@ -8,21 +10,12 @@ const PORT = 8080;
 
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(cookieParser());
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1', 'key2']
+}));
 
 app.set("view engine", "ejs");
-
-const generateRandomString = function() {
-  let randomString = "";
-  for (let i = 0; i < 6; i++) {
-    let randomCharCode = Math.floor(Math.random() * 26 + 97);
-    if (Math.random() < 0.5) {
-      randomCharCode = Math.floor(Math.random() * 9 + 48);
-    }
-    const randomChar = String.fromCharCode(randomCharCode);
-    randomString += randomChar;
-  }
-  return randomString;
-};
 
 const urlDatabase = {
   "b2xVn2": {
@@ -35,18 +28,6 @@ const urlDatabase = {
   }
 };
 
-// filtering the database by the passed in ID
-const urlsForUser = (id, database) => {
-  const filteredDatabase = {};
-  for (let shortUrl in database) {
-    const value = database[shortUrl];
-    if (value.userID === id) {
-      filteredDatabase[shortUrl] = value;
-    }
-  }
-  return filteredDatabase;
-};
-
 const users = {
   "userRandomID": {
     id: "userRandomID",
@@ -56,20 +37,8 @@ const users = {
   "user2RandomID": {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: "1"
-    //password: "dishwasher-funk"
+    password: bcrypt.hashSync("dishwasher-funk", 10),
   }
-};
-
-const findUserByEmail = (email, database) => {
-  for (let userId in database) {
-    const user = database[userId];
-
-    if (user.email === email) {
-      return user;
-    }
-  }
-  return false;
 };
 
 const authenticateUser = (email, password, database) => {
@@ -89,7 +58,7 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  const userId = req.cookies.user_id;
+  const userId = req.session.userId;
   const filteredDatabase = urlsForUser(userId, urlDatabase);
   const templateVars = {
     urls: filteredDatabase,
@@ -99,7 +68,7 @@ app.get("/urls", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  const userId = req.cookies.user_id;
+  const userId = req.session.userId;
   const user = users[userId];
   if (!userId || !user) {
     res.redirect("/login");
@@ -111,7 +80,7 @@ app.get("/urls/new", (req, res) => {
 
 // Rendering the register form
 app.get("/register", (req, res) => {
-  const userId = req.cookies.user_id;
+  const userId = req.session.userId;
   if (users[userId]) {
     res.redirect("/urls");
     return;
@@ -120,29 +89,29 @@ app.get("/register", (req, res) => {
   res.render("register", templateVars);
 });
 
-// Rendering the login form
+// Rendering the login form (protected)
 app.get("/login", (req, res) => {
-  const userId = req.cookies.user_id;
+  const userId = req.session.userId;
   if (users[userId]) {
     res.redirect("/urls");
     return;
   }
   const templateVars = { user: null };
-  res.render('login', templateVars);
+  res.render("login", templateVars);
 });
 
 // Rendering the urls_show
 app.get("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL].longURL;
-  const userId = req.cookies.user_id;
+  const userId = req.session.userId;
   const templateVars = { shortURL, longURL, user: users[userId] };
   res.render("urls_show", templateVars);
 });
 
 // Creating shortURL and redirecting to it
 app.post("/urls", (req, res) => {
-  const userId = req.cookies.user_id;
+  const userId = req.session.userId;
   const user = users[userId];
   if (!userId || !user) {
     res.status(403).send("Not logged in.");
@@ -177,7 +146,7 @@ app.post("/urls/:shortURL", (req, res) => {
   const newURL = req.body.newURL;
   urlDatabase[shortURL].longURL = newURL;
 
-  const userId = req.cookies.user_id;
+  const userId = req.session.userId;
   const value = urlDatabase[shortURL];
   if (value.userID !== userId) {
     res.status(403).send("You don't have permission to edit this.");
@@ -189,7 +158,7 @@ app.post("/urls/:shortURL", (req, res) => {
 // Deleting URL
 app.post("/urls/:shortURL/delete", (req, res) => {
   const shortURL = req.params.shortURL;
-  const userId = req.cookies.user_id;
+  const userId = req.session.userId;
   const value = urlDatabase[shortURL];
   if (value.userID !== userId) {
     res.status(403).send("You don't have permission to delete this.");
@@ -207,7 +176,7 @@ app.post("/login", (req, res) => {
   const user = authenticateUser(email, password, users);
 
   if (user) {
-    res.cookie("user_id", user.id);
+    req.session.userId = user.id;
     res.redirect("/urls");
     return;
   }
@@ -216,7 +185,7 @@ app.post("/login", (req, res) => {
 
 // Logout
 app.post("/logout", (req, res) => {
-  res.clearCookie("user_id");
+  req.session = null;
   res.redirect("/urls");
 });
 
@@ -250,8 +219,7 @@ app.post("/register", (req, res) => {
   // Adding the new user to the db
   users[userId] = newUser;
 
-  // Setting a user_id cookie, keeping the userId in the cookie
-  res.cookie("user_id", userId);
+  req.session.userId = user.id;
   res.redirect("/urls");
 });
 
