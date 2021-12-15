@@ -105,6 +105,12 @@ app.get("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const longURL = urlDatabase[shortURL].longURL;
   const userId = req.session.userId;
+  const user = users[userId];
+  if (!userId || !user) {
+    res.status(403).send("Not logged in.");
+    return;
+  }
+
   const templateVars = { shortURL, longURL, user: users[userId] };
   res.render("urls_show", templateVars);
 });
@@ -144,14 +150,15 @@ app.get("/urls/:shortURL/edit", (req, res) => {
 app.post("/urls/:shortURL", (req, res) => {
   const shortURL = req.params.shortURL;
   const newURL = req.body.newURL;
-  urlDatabase[shortURL].longURL = newURL;
-
   const userId = req.session.userId;
   const value = urlDatabase[shortURL];
+  
   if (value.userID !== userId) {
     res.status(403).send("You don't have permission to edit this.");
     return;
   }
+
+  urlDatabase[shortURL].longURL = newURL;
   res.redirect("/urls");
 });
 
@@ -219,7 +226,7 @@ app.post("/register", (req, res) => {
   // Adding the new user to the db
   users[userId] = newUser;
 
-  req.session.userId = user.id;
+  req.session.userId = newUser.id;
   res.redirect("/urls");
 });
 
